@@ -1,0 +1,91 @@
+======================================================================
+  EQUITY SECTOR ANALYSIS — MARKET SUMMARY REPORT
+  Generated: April 03, 2026 at 05:03 PM
+  Cameron Camarotti | github.com/cameroncc333
+======================================================================
+
+  SECTOR RANKINGS SUMMARY
+  ────────────────────────────────────────────────────────────
+
+  Strongest Sector: XLE (Energy)
+    60-Day Return: +30.67%
+    Sharpe Ratio: 0.505
+    Composite Score: 22.11
+
+  Weakest Sector: XLY (Consumer Discretionary)
+    60-Day Return: -10.49%
+    Sharpe Ratio: 0.363
+    Composite Score: 8.78
+
+  RSI SIGNALS
+  ────────────────────────────────────────────────────────────
+
+  No sectors currently overbought (RSI > 70)
+  No sectors currently oversold (RSI < 30)
+
+  TREND SIGNALS (Moving Average Crossovers)
+  ────────────────────────────────────────────────────────────
+
+  BULLISH — Golden Cross (50-day MA > 200-day MA):
+    XLK (Technology)
+    XLE (Energy)
+    XLV (Healthcare)
+    XLP (Consumer Staples)
+    XLI (Industrials)
+    XLB (Materials)
+    XLRE (Real Estate)
+    XLU (Utilities)
+    XLC (Communication Services)
+
+  BEARISH — Death Cross (50-day MA < 200-day MA):
+    XLF (Financials)
+    XLY (Consumer Discretionary)
+
+  RISK ANALYSIS
+  ────────────────────────────────────────────────────────────
+
+  HIGH BETA sectors (amplify market moves, β > 1.2):
+    XLK (Technology): β = 1.419
+
+  DEFENSIVE sectors (dampen market moves, β < 0.8):
+    XLP (Consumer Staples): β = 0.220
+    XLU (Utilities): β = 0.349
+    XLV (Healthcare): β = 0.479
+    XLRE (Real Estate): β = 0.517
+    XLE (Energy): β = 0.634
+    XLB (Materials): β = 0.785
+
+  DIVERSIFICATION ANALYSIS
+  ────────────────────────────────────────────────────────────
+
+  Best diversification pairs (lowest correlation):
+    XLK/XLP (Technology/Consumer Staples): 0.059
+    XLK/XLU (Technology/Utilities): 0.226
+    XLE/XLP (Energy/Consumer Staples): 0.245
+
+  Highest correlation pairs (move together):
+    XLI/XLB (Industrials/Materials): 0.795
+    XLF/XLI (Financials/Industrials): 0.782
+    XLY/XLC (Consumer Discretionary/Communication Services): 0.764
+
+  COMPLETE SECTOR RANKINGS
+  ────────────────────────────────────────────────────────────
+  Rank  Ticker Sector                      Score   60d Ret   Sharpe  
+  ────────────────────────────────────────────────────────────
+  1     XLE    Energy                      22.11   30.67+++++0.505   
+  2     XLU    Utilities                   20.08   8.75++++++1.109   
+  3     XLI    Industrials                 15.17   1.36++++++0.692   
+  4     XLP    Consumer Staples            13.88   6.30++++++0.293   
+  5     XLRE   Real Estate                 13.76   2.92++++++0.262   
+  6     XLB    Materials                   13.24   6.60++++++0.177   
+  7     XLC    Communication Services      13.10   -4.49+++++0.777   
+  8     XLK    Technology                  10.48   -7.15+++++0.508   
+  9     XLF    Financials                  9.01    -11.73++++0.415   
+  10    XLV    Healthcare                  8.99    -6.75+++++-0.048  
+  11    XLY    Consumer Discretionary      8.78    -10.49++++0.363   
+
+======================================================================
+  DISCLAIMER: This analysis is for educational and informational
+  purposes only. It is not investment advice. Past performance
+  does not guarantee future results.
+======================================================================
