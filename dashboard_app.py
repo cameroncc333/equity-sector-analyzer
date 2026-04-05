@@ -854,9 +854,7 @@ def render_table(df, height=440):
            "Skew":"{:.3f}","Kurt":"{:.3f}","Div_Yield":"{:.2f}%",
            "R_30d":"{:+.2f}%","R_60d":"{:+.2f}%","R_90d":"{:+.2f}%","R_1y":"{:+.2f}%"}
     st.dataframe(
-        df[avail].style.format({k:v for k,v in fmt.items() if k in avail})
-        .background_gradient(subset=["Sharpe"] if "Sharpe" in avail else [], cmap="RdYlGn")
-        .background_gradient(subset=["Volatility"] if "Volatility" in avail else [], cmap="RdYlGn_r"),
+        df[avail].style.format({k:v for k,v in fmt.items() if k in avail}),
         use_container_width=True, hide_index=True, height=height)
 
 def chart(fig, h=400):
