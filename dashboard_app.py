@@ -200,6 +200,7 @@ with st.sidebar:
     st.caption("Fama-French: 5-factor OLS regression")
     st.caption("Composite: weighted avg of metric ranks")
     st.caption("Rotation: cumulative off vs def sector spread")
+    st.caption("Options: Black-Scholes w/ Greeks (∂V/∂S, ∂²V/∂S², ∂V/∂T, ∂V/∂σ)")
     st.caption("Regime: SPY vs 200d SMA × VIX vs 20")
     st.markdown("---")
     st.markdown("**Cameron Camarotti**")
@@ -836,7 +837,7 @@ if sq:
 # TABS
 # ═══════════════════════════════════════════════════════════════════════
 tabs = st.tabs(["SECTORS", "MEGA-CAPS", "MULTI-TF", "ROTATION", "HEAD-TO-HEAD",
-                 "PORTFOLIO", "WATCHLIST", "THESIS"])
+                 "OPTIONS", "PORTFOLIO", "WATCHLIST", "THESIS"])
 
 # ═══════════════════════════════════════════════════════════════════════
 # HELPER: render analysis table
@@ -1319,9 +1320,245 @@ with tabs[4]:
 
 
 # ═══════════════════════════════════════════════════════════════════════
-# TAB 6: PORTFOLIO
+# TAB 6: OPTIONS PRICING — Black-Scholes & Greeks
 # ═══════════════════════════════════════════════════════════════════════
 with tabs[5]:
+    st.markdown('<div class="shdr">Options Pricing — Black-Scholes Model & Greeks</div>', unsafe_allow_html=True)
+    st.caption("The same partial derivative mathematics used in the AAS pricing model (∂Cost/∂φ) "
+               "applied to derivatives pricing. Delta, Gamma, Theta, and Vega are all partial "
+               "derivatives of the Black-Scholes equation with respect to different variables.")
+
+    # Black-Scholes functions
+    from scipy.stats import norm as sp_norm
+
+    def bs_d1(S, K, T, r, sigma):
+        """d1 parameter of Black-Scholes."""
+        if T <= 0 or sigma <= 0:
+            return 0.0
+        return (np.log(S / K) + (r + 0.5 * sigma**2) * T) / (sigma * np.sqrt(T))
+
+    def bs_d2(S, K, T, r, sigma):
+        return bs_d1(S, K, T, r, sigma) - sigma * np.sqrt(T)
+
+    def bs_call_price(S, K, T, r, sigma):
+        """Black-Scholes European call price."""
+        if T <= 0:
+            return max(S - K, 0)
+        d1 = bs_d1(S, K, T, r, sigma)
+        d2 = bs_d2(S, K, T, r, sigma)
+        return S * sp_norm.cdf(d1) - K * np.exp(-r * T) * sp_norm.cdf(d2)
+
+    def bs_put_price(S, K, T, r, sigma):
+        """Black-Scholes European put price."""
+        if T <= 0:
+            return max(K - S, 0)
+        d1 = bs_d1(S, K, T, r, sigma)
+        d2 = bs_d2(S, K, T, r, sigma)
+        return K * np.exp(-r * T) * sp_norm.cdf(-d2) - S * sp_norm.cdf(-d1)
+
+    def bs_greeks(S, K, T, r, sigma, option_type="call"):
+        """Compute all Greeks — each is a partial derivative of the option price."""
+        if T <= 0 or sigma <= 0:
+            return {"Delta": 0, "Gamma": 0, "Theta": 0, "Vega": 0, "Rho": 0}
+        d1 = bs_d1(S, K, T, r, sigma)
+        d2 = bs_d2(S, K, T, r, sigma)
+        pdf_d1 = sp_norm.pdf(d1)
+
+        # Delta: ∂V/∂S — sensitivity to underlying price
+        if option_type == "call":
+            delta = sp_norm.cdf(d1)
+        else:
+            delta = sp_norm.cdf(d1) - 1
+
+        # Gamma: ∂²V/∂S² — rate of change of delta (second derivative)
+        gamma = pdf_d1 / (S * sigma * np.sqrt(T))
+
+        # Theta: ∂V/∂T — sensitivity to time decay (per day)
+        if option_type == "call":
+            theta = (-(S * pdf_d1 * sigma) / (2 * np.sqrt(T))
+                     - r * K * np.exp(-r * T) * sp_norm.cdf(d2)) / 365
+        else:
+            theta = (-(S * pdf_d1 * sigma) / (2 * np.sqrt(T))
+                     + r * K * np.exp(-r * T) * sp_norm.cdf(-d2)) / 365
+
+        # Vega: ∂V/∂σ — sensitivity to volatility (per 1% move)
+        vega = S * pdf_d1 * np.sqrt(T) / 100
+
+        # Rho: ∂V/∂r — sensitivity to interest rates (per 1% move)
+        if option_type == "call":
+            rho = K * T * np.exp(-r * T) * sp_norm.cdf(d2) / 100
+        else:
+            rho = -K * T * np.exp(-r * T) * sp_norm.cdf(-d2) / 100
+
+        return {"Delta": round(delta, 4), "Gamma": round(gamma, 4),
+                "Theta": round(theta, 4), "Vega": round(vega, 4), "Rho": round(rho, 4)}
+
+    # User inputs
+    opt_col1, opt_col2 = st.columns(2)
+    with opt_col1:
+        opt_ticker = st.selectbox("Underlying", sorted(ALL_T.keys()), key="opt_tk",
+                                   format_func=lambda x: f"{x} — {ALL_T[x]}")
+        opt_type = st.radio("Option Type", ["Call", "Put"], horizontal=True, key="opt_type")
+
+    # Get current price
+    opt_spot = safe_last(prices[opt_ticker]) if opt_ticker in prices.columns else 100.0
+    opt_vol_annual = volatility(ret[opt_ticker].dropna()) / 100 if opt_ticker in ret.columns else 0.25
+
+    with opt_col2:
+        opt_strike = st.number_input("Strike Price ($)", min_value=1.0,
+                                      value=round(opt_spot, 0) if opt_spot else 100.0, step=1.0, key="opt_k")
+        opt_dte = st.number_input("Days to Expiration", min_value=1, value=30, step=1, key="opt_dte")
+
+    opt_T = opt_dte / 365.0
+    opt_r = RF
+    opt_sigma = opt_vol_annual if opt_vol_annual > 0 else 0.25
+
+    st.caption(f"Spot: ${opt_spot:,.2f} | Implied Vol (from historical): {opt_sigma*100:.1f}% | "
+               f"Risk-free rate: {opt_r*100:.2f}% | T: {opt_T:.4f} years")
+
+    # Compute price and Greeks
+    if opt_type == "Call":
+        opt_price = bs_call_price(opt_spot, opt_strike, opt_T, opt_r, opt_sigma)
+    else:
+        opt_price = bs_put_price(opt_spot, opt_strike, opt_T, opt_r, opt_sigma)
+
+    greeks = bs_greeks(opt_spot, opt_strike, opt_T, opt_r, opt_sigma,
+                        option_type=opt_type.lower())
+
+    # Display
+    st.markdown("---")
+    gm = st.columns(6)
+    gm[0].metric(f"{opt_type} Price", f"${opt_price:.2f}")
+    gm[1].metric("Delta (∂V/∂S)", f"{greeks['Delta']:.4f}")
+    gm[2].metric("Gamma (∂²V/∂S²)", f"{greeks['Gamma']:.4f}")
+    gm[3].metric("Theta (∂V/∂T)", f"{greeks['Theta']:.4f}")
+    gm[4].metric("Vega (∂V/∂σ)", f"{greeks['Vega']:.4f}")
+    gm[5].metric("Rho (∂V/∂r)", f"{greeks['Rho']:.4f}")
+
+    st.markdown("---")
+
+    # Price sensitivity charts
+    try:
+        st.markdown('<div class="shdr">Option Price vs. Underlying Price</div>', unsafe_allow_html=True)
+        spot_range = np.linspace(opt_spot * 0.7, opt_spot * 1.3, 100)
+        if opt_type == "Call":
+            prices_curve = [bs_call_price(s, opt_strike, opt_T, opt_r, opt_sigma) for s in spot_range]
+            intrinsic = [max(s - opt_strike, 0) for s in spot_range]
+        else:
+            prices_curve = [bs_put_price(s, opt_strike, opt_T, opt_r, opt_sigma) for s in spot_range]
+            intrinsic = [max(opt_strike - s, 0) for s in spot_range]
+
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=spot_range, y=prices_curve, name=f"{opt_type} Value",
+                                  line=dict(color=C["blue"], width=2.5)))
+        fig.add_trace(go.Scatter(x=spot_range, y=intrinsic, name="Intrinsic Value",
+                                  line=dict(color=C["slate"], width=1.5, dash="dash")))
+        fig.add_vline(x=opt_spot, line_dash="dot", line_color=C["amber"],
+                       annotation_text=f"Spot ${opt_spot:.0f}")
+        fig.add_vline(x=opt_strike, line_dash="dot", line_color=C["red"],
+                       annotation_text=f"Strike ${opt_strike:.0f}")
+        fig.update_layout(title=f"{opt_ticker} {opt_type} — Black-Scholes Price Curve",
+                          xaxis_title="Underlying Price ($)", yaxis_title="Option Value ($)")
+        chart(fig, 400)
+    except Exception:
+        pass
+
+    # Greeks across spot prices
+    try:
+        st.markdown('<div class="shdr">Greeks vs. Underlying Price</div>', unsafe_allow_html=True)
+        delta_curve = []; gamma_curve = []; theta_curve = []; vega_curve = []
+        for s in spot_range:
+            g = bs_greeks(s, opt_strike, opt_T, opt_r, opt_sigma, option_type=opt_type.lower())
+            delta_curve.append(g["Delta"])
+            gamma_curve.append(g["Gamma"])
+            theta_curve.append(g["Theta"])
+            vega_curve.append(g["Vega"])
+
+        fig = make_subplots(rows=2, cols=2,
+                            subplot_titles=["Delta (∂V/∂S)", "Gamma (∂²V/∂S²)",
+                                            "Theta (∂V/∂T)", "Vega (∂V/∂σ)"])
+        fig.add_trace(go.Scatter(x=spot_range, y=delta_curve, line=dict(color=C["blue"], width=2),
+                                  showlegend=False), row=1, col=1)
+        fig.add_trace(go.Scatter(x=spot_range, y=gamma_curve, line=dict(color=C["green"], width=2),
+                                  showlegend=False), row=1, col=2)
+        fig.add_trace(go.Scatter(x=spot_range, y=theta_curve, line=dict(color=C["red"], width=2),
+                                  showlegend=False), row=2, col=1)
+        fig.add_trace(go.Scatter(x=spot_range, y=vega_curve, line=dict(color=C["purple"], width=2),
+                                  showlegend=False), row=2, col=2)
+        # Add spot line to each
+        for r_idx in [1,2]:
+            for c_idx in [1,2]:
+                fig.add_vline(x=opt_spot, line_dash="dot", line_color=C["amber"],
+                               row=r_idx, col=c_idx)
+        chart(fig, 500)
+    except Exception:
+        pass
+
+    # Volatility surface
+    try:
+        st.markdown('<div class="shdr">Volatility Surface — Price Sensitivity to Vol & Time</div>', unsafe_allow_html=True)
+        st.caption("Shows how option price changes across different volatility levels and days to expiration.")
+
+        vol_range = np.linspace(0.10, 0.80, 30)
+        dte_range = np.arange(5, 91, 3)
+        surface = np.zeros((len(vol_range), len(dte_range)))
+
+        for i, v in enumerate(vol_range):
+            for j, d in enumerate(dte_range):
+                t = d / 365.0
+                if opt_type == "Call":
+                    surface[i, j] = bs_call_price(opt_spot, opt_strike, t, opt_r, v)
+                else:
+                    surface[i, j] = bs_put_price(opt_spot, opt_strike, t, opt_r, v)
+
+        fig = go.Figure(data=[go.Surface(
+            z=surface, x=dte_range, y=vol_range * 100,
+            colorscale="Viridis", showscale=True,
+            colorbar=dict(title="Price ($)")
+        )])
+        fig.update_layout(
+            title=f"{opt_ticker} {opt_type} — Volatility Surface",
+            scene=dict(
+                xaxis_title="Days to Expiration",
+                yaxis_title="Implied Volatility (%)",
+                zaxis_title="Option Price ($)",
+                bgcolor="rgba(12,16,23,0.95)",
+            ),
+            **{k: v for k, v in PL.items() if k not in ["xaxis", "yaxis"]},
+            height=550,
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    except Exception:
+        pass
+
+    # Time decay visualization
+    try:
+        st.markdown('<div class="shdr">Time Decay — Option Value Over Time</div>', unsafe_allow_html=True)
+        days_remaining = list(range(opt_dte, 0, -1))
+        decay_curve = []
+        for d in days_remaining:
+            t = d / 365.0
+            if opt_type == "Call":
+                decay_curve.append(bs_call_price(opt_spot, opt_strike, t, opt_r, opt_sigma))
+            else:
+                decay_curve.append(bs_put_price(opt_spot, opt_strike, t, opt_r, opt_sigma))
+
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=days_remaining, y=decay_curve, name="Option Value",
+                                  line=dict(color=C["red"], width=2.5),
+                                  fill="tozeroy", fillcolor="rgba(239,68,68,0.08)"))
+        fig.update_layout(title=f"Time Decay — {opt_ticker} {opt_type} (Strike ${opt_strike:.0f})",
+                          xaxis_title="Days Remaining", yaxis_title="Option Value ($)",
+                          xaxis=dict(autorange="reversed"))
+        chart(fig, 350)
+    except Exception:
+        pass
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# TAB 7: PORTFOLIO
+# ═══════════════════════════════════════════════════════════════════════
+with tabs[6]:
     st.markdown('<div class="shdr">Portfolio Tracker & Benchmark</div>', unsafe_allow_html=True)
 
     if "portfolio" not in st.session_state: st.session_state.portfolio = []
@@ -1568,13 +1805,13 @@ with tabs[5]:
             e = "▲" if r["G/L %"] >= 0 else "▼"
             st.markdown(f"**{r['Ticker']}** {e} {r['G/L %']:+.2f}% — _{th}_")
     else:
-        st.info("**Add your first holding.** Open a custodial account at Fidelity or Schwab with a parent, fund with $500–$2,000 from AAS earnings.")
+        st.caption("No holdings yet. Add your first position above.")
 
 
 # ═══════════════════════════════════════════════════════════════════════
 # TAB 7: WATCHLIST
 # ═══════════════════════════════════════════════════════════════════════
-with tabs[6]:
+with tabs[7]:
     st.markdown('<div class="shdr">Watchlist</div>', unsafe_allow_html=True)
     st.caption("Track securities you're monitoring but haven't bought. Define triggers for when to enter.")
 
@@ -1664,13 +1901,13 @@ with tabs[6]:
                 if st.button(f"🗑 Remove", key=f"rw_{i}"):
                     st.session_state.watchlist.pop(i); st.rerun()
     else:
-        st.info("Add tickers you're monitoring. Define triggers — this shows discipline and patience to admissions reviewers.")
+        st.caption("No tickers on watchlist yet. Add securities above.")
 
 
 # ═══════════════════════════════════════════════════════════════════════
 # TAB 8: THESIS JOURNAL
 # ═══════════════════════════════════════════════════════════════════════
-with tabs[7]:
+with tabs[8]:
     st.markdown('<div class="shdr">Investment Thesis Journal</div>', unsafe_allow_html=True)
 
     if "theses" not in st.session_state: st.session_state.theses = []
@@ -1732,7 +1969,7 @@ with tabs[7]:
                 st.caption(f"Saved: {t.get('saved','')}")
                 if st.button("🗑 Delete",key=f"dt{i}"): st.session_state.theses.pop(i); st.rerun()
     else:
-        st.info("**Write your first monthly thesis.** Document your macro view, reference the dashboard data, and log your actions. After 3-6 months, this becomes the centerpiece of your 'Why Wharton' essay.")
+        st.caption("No thesis entries yet. Write your first monthly outlook above.")
 
 # PDF Export
 try:
@@ -1790,7 +2027,7 @@ st.markdown(f"""
     ◆ EQUITY SECTOR ANALYZER v3.0 &nbsp;·&nbsp; Cameron Camarotti &nbsp;·&nbsp;
     <a href="https://github.com/cameroncc333">github.com/cameroncc333</a> &nbsp;·&nbsp;
     <a href="https://allaroundservice.com">allaroundservice.com</a><br>
-    30+ metrics · Fama-French 5-factor · Monte Carlo · Live data · Not financial advice<br>
+    30+ metrics · Fama-French 5-factor · Black-Scholes · Monte Carlo · Live data · Not financial advice<br>
     {datetime.now().strftime("%Y")} · Mill Creek High School · Hoschton, GA
 </div>
 """, unsafe_allow_html=True)
