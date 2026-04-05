@@ -54,6 +54,20 @@ I pull daily factor return data from the [Kenneth French Data Library](https://m
 
 If R² is 0.85, the five factors explain 85% of the stock's daily returns. The remaining 15% is idiosyncratic — that's where genuine stock-specific alpha lives, if it exists at all.
 
+### Why Black-Scholes & Greeks?
+
+The Options Pricing tab uses the same partial derivative mathematics that I use in my [AAS pricing model](https://github.com/cameroncc333/aas-pricing-model) — applied to a different domain. In the pricing model, I compute ∂Cost/∂φ (how cost changes with respect to crew fatigue) to find optimal crew dispatch thresholds. In Black-Scholes, the Greeks are the same concept:
+
+- **Delta (∂V/∂S)** — how option value changes with respect to the underlying stock price
+- **Gamma (∂²V/∂S²)** — the second derivative, how Delta itself changes as the stock moves (convexity of the payoff)
+- **Theta (∂V/∂T)** — how value decays with respect to time (the cost of holding an option overnight)
+- **Vega (∂V/∂σ)** — how value changes with respect to implied volatility
+- **Rho (∂V/∂r)** — how value changes with respect to the risk-free interest rate
+
+The Black-Scholes formula itself is a partial differential equation — the same class of mathematics as heat diffusion in physics. The tab lets you price any call or put on the 25 securities in the universe, visualize the price curve against intrinsic value, plot all Greeks across a range of spot prices, explore a 3D volatility surface (option price as a function of both volatility and time to expiration), and see time decay in action as expiration approaches.
+
+The connection across my projects: partial derivatives are how I optimize crew dispatch at AAS, how I decompose factor exposures in Fama-French regression, and how I price options. Same mathematical framework, three different applications.
+
 ### Why Monte Carlo for portfolio projection?
 
 I use the same simulation methodology here that I use in my [AAS pricing model](https://github.com/cameroncc333/aas-pricing-model) — different domain, same mathematical framework. The simulation draws 1,000 random return paths from the historical distribution of portfolio daily returns (using the actual mean and standard deviation, not a parametric assumption). The fan chart shows 5th/25th/50th/75th/95th percentile bands.
@@ -76,6 +90,8 @@ Capital rotates between offensive sectors (Technology, Consumer Discretionary, C
 
 Risk-adjusted returns: Sharpe, Sortino, Treynor, Calmar, Omega, Jensen's Alpha, Information Ratio. Risk metrics: 95% Historical VaR, Max Drawdown, Current Drawdown, Ulcer Index, Skewness, Kurtosis. Technical: RSI (14-day Wilder), Beta (with R² and p-value), 20-day Momentum, Annualized Volatility, 50/200-day SMA with crossover detection, Relative Volume. Returns: 30d, 60d, 90d, 1y, plus regression-based acceleration. Additional: 52-week high/low, distance from 52-week high, dividend yield, Fama-French 5-factor loadings.
 
+**Options pricing:** Black-Scholes European call/put pricing for any security in the universe, with full Greeks (Delta, Gamma, Theta, Vega, Rho), price sensitivity curves, 3D volatility surface, and time decay visualization. Uses each stock's actual historical volatility from the dashboard data.
+
 **Portfolio-level:** Sharpe, Sortino, Beta, Volatility, Information Ratio, correlation to SPY, Herfindahl-Hirschman Index for concentration, performance attribution, Monte Carlo projection, dividend income estimate, alpha vs. SPY benchmark.
 
 **Market-level:** S&P 500 (SPY), VIX, 10-Year Treasury yield, yield curve spread (10Y minus 3-month), US Dollar Index, sector rotation signal (20d and 60d), market regime classification (Bull/Bear × Low/High Volatility).
@@ -86,6 +102,7 @@ Risk-adjusted returns: Sharpe, Sortino, Treynor, Calmar, Omega, Jensen's Alpha, 
 
 - **Automated signal engine** — flags oversold/overbought RSI, golden/death crosses, deep drawdowns, volume spikes, 52-week proximity, earnings date warnings
 - **Head-to-head comparison** — any two securities side by side with every metric, overlaid price charts, relative strength, return distributions, correlation
+- **Options pricing** — Black-Scholes model with Greeks, price curves, volatility surface, time decay
 - **Portfolio tracker** — holdings with cost basis, thesis per position, sector concentration analysis, benchmark comparison, "what if" simulator for testing positions before committing
 - **Watchlist** — monitor securities with defined trigger conditions that auto-check against live data
 - **Thesis journal** — monthly written analysis with lessons learned, portfolio and market snapshots saved per entry
@@ -111,13 +128,13 @@ streamlit run dashboard_app.py
 
 ## Project Ecosystem
 
-This dashboard is part of a broader set of quantitative tools I've built:
+This dashboard is part of a broader set of quantitative tools I've built. The mathematical thread connecting them is partial derivatives and Monte Carlo simulation — applied to service pricing, options pricing, and portfolio analysis:
 
-**[aas-pricing-model](https://github.com/cameroncc333/aas-pricing-model)** — An 8-variable cost function for my home services company using partial derivative optimization. Variables: fuel cost, route distance, labor hours, crew fatigue factor (φ), equipment depreciation, materials cost, disposal fees, seasonal demand coefficient (κ). Includes Monte Carlo simulation (10,000 scenarios) and sensitivity analysis, back-tested against all 44 real jobs. The crew fatigue factor was the key insight — by computing ∂Cost/∂φ relative to route distance, I found the threshold where dispatching a second crew becomes more profitable than overtime for the first. Same Monte Carlo methodology as this dashboard, applied to operations instead of markets.
+**[aas-pricing-model](https://github.com/cameroncc333/aas-pricing-model)** — An 8-variable cost function for my home services company using partial derivative optimization. Variables: fuel cost, route distance, labor hours, crew fatigue factor (φ), equipment depreciation, materials cost, disposal fees, seasonal demand coefficient (κ). Includes Monte Carlo simulation (10,000 scenarios) and sensitivity analysis, back-tested against all 44 real jobs. The crew fatigue factor was the key insight — by computing ∂Cost/∂φ relative to route distance, I found the threshold where dispatching a second crew becomes more profitable than overtime for the first.
 
 **[fed-rate-sector-analysis](https://github.com/cameroncc333/fed-rate-sector-analysis)** — Analysis of how FOMC rate decisions propagate through S&P 500 sectors across 30/60/90-day windows. Tracks the 2025 cutting cycle and 2026 holds.
 
-**[AAS-Website](https://github.com/cameroncc333/AAS-Website)** — Source for [allaroundservice.com](https://allaroundserviceatl.com). Netlify hosting, Cloudflare DNS.
+**[AAS-Website](https://github.com/cameroncc333/AAS-Website)** — Source for [allaroundserviceatl.com](https://allaroundserviceatl.com). Netlify hosting, Cloudflare DNS.
 
 ---
 
@@ -138,6 +155,7 @@ My approach: find a system, understand why it behaves the way it does, build a t
 | v1.0 | Jan 2025 | Sector ETF analysis — Sharpe, RSI, beta, momentum, correlation |
 | v2.0 | Mar 2025 | Added mega-cap stocks, portfolio tracker, thesis journal, multi-timeframe comparison |
 | v3.0 | Apr 2025 | 30+ metrics, Fama-French 5-factor, Monte Carlo, sector rotation, yield curve, regime detection, head-to-head comparison, watchlist, backtest, HHI concentration, portfolio analytics, automated signals, adjustable weights |
+| v3.1 | Apr 2025 | Black-Scholes options pricing with full Greeks, price sensitivity curves, 3D volatility surface, time decay visualization |
 
 ---
 
