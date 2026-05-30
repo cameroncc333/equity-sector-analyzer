@@ -1,3 +1,5 @@
+> 🔗 **Component of [Sector Command Live](https://github.com/cameroncc333/sector-command-live)** — a production-deployed autonomous trading system running live every trading day. This repo supplies the **cross-sectional factor model** that generates individual stock picks sent in every briefing. **[Live Dashboard →](https://sector-command-live.vercel.app)**
+
 # Equity Sector Analyzer
 
 **A live quantitative dashboard for analyzing S&P 500 sectors and mega-cap equities.**
